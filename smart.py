@@ -50,6 +50,7 @@ class Drive:
             self.model = deviceInfo["model_name"]
             self.serial = deviceInfo["serial_number"]
             self.blocks = int(deviceInfo["logical_block_size"])
+            # devstat page provides better output, but may not work for older drives
             drive = str(subprocess.Popen('smartctl -l devstat {}'.format(self.dev), shell=True, stdout=subprocess.PIPE).stdout.read(), "utf-8").splitlines()
             for entry in drive:
                 if entry.startswith('0x'):
@@ -115,8 +116,8 @@ class Drive:
             except:
                 try:
                     self.model = deviceInfo["scsi_product"]
-                except:
-                    self.model = None
+                except KeyError: # In case any other brands use another key name, will leave default None
+                    pass
             self.serial = deviceInfo["serial_number"]
             self.blocks = deviceInfo["logical_block_size"]
             drive = str(subprocess.Popen('smartctl -a {}'.format(self.dev), shell=True, stdout=subprocess.PIPE).stdout.read(), "utf-8").splitlines()
@@ -146,6 +147,47 @@ class Drive:
                     b = int(float(rw.split()[6]) * 1024 * 1024 * 1024)
                     self.write = self.Metric('write_bytes', b)
 
+        elif self.ty == 'nvme':
+            self.ssd = True
+            deviceInfo = json.load(subprocess.Popen('smartctl -i --json {}'.format(self.dev), shell=True, stdout=subprocess.PIPE).stdout)
+            try:
+                self.model = deviceInfo["model_name"]
+            except KeyError:
+                pass
+            self.serial = deviceInfo["serial_number"]
+            self.blocks = deviceInfo["logical_block_size"]
+            drive = str(subprocess.Popen('smartctl -A {}'.format(self.dev), shell=True, stdout=subprocess.PIPE).stdout.read(), "utf-8").splitlines()
+            # This may not work for many drives, I only have samsung NVMes to test and other brands may format output differently
+            drive = json.load(subprocess.Popen('smartctl -A --json {}'.format(self.dev), shell=True, stdout=subprocess.PIPE).stdout)
+            self.temp = self.Metric('temperature', drive["temperature"]["current"])
+            self.hours = self.Metric('power_on_hours', drive["power_on_time"]["hours"])
+            self.starts = self.Metric('starts_stops', drive["power_cycle_count"])
+            try:
+                self.pctUsed = self.Metric('percent_used', drive["nvme_smart_health_information_log"]["percentage_used"])
+            except KeyError:
+                pass
+            try:
+                b = drive["nvme_smart_health_information_log"]["data_units_read"] * self.blocks
+                self.read = self.Metric('read_bytes', b)
+            except KeyError:
+                pass
+            try:
+                b = drive["nvme_smart_health_information_log"]["data_units_written"] * self.blocks
+                self.write = self.Metric('write_bytes', b)
+            except KeyError:
+                pass
+            try:
+                self.readCt = self.Metric('read_count', drive["nvme_smart_health_information_log"]["host_reads"])
+            except KeyError:
+                pass
+            try:
+                self.writeCt = self.Metric('write_count', drive["nvme_smart_health_information_log"]["host_writes"])
+            except KeyError:
+                pass
+            try:
+                self.unErr = self.Metric('uncorrectable_errors', drive["nvme_smart_health_information_log"]["critical_warning"])
+            except KeyError:
+                pass
     """ This iter was mainly used for testing, but it could be handy, 
     returns only Metric object data and not the label items when looped
     through a Drive object.
@@ -197,7 +239,7 @@ metric_list = {
         'unErr': 'uncorrectable_errors'
         }
 
-prefix = 'farm'
+prefix = 'farm' # prefix to appear in front of all metrics, change to whatever is desired
 
 # Formats and prints the node-exporter HELP and TYPE lines
 def metric_help_type(prefix, metric):
