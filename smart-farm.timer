@@ -1,0 +1,9 @@
+[Unit]
+Description=Run SMART-farm node-exporter scrape twice daily
+
+[Timer]
+OnCalendar=*-*-* 8:00:00
+OnCalendar=*-*-* 20:00:00
+
+[Install]
+WantedBy=timers.target

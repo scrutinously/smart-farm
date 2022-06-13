@@ -1,0 +1,7 @@
+[Unit]
+Description=Run smart-farm python script
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/bin/bash -c "/usr/bin/python /path/to/smart-farm.py > /var/lib/node_exporter/smart_farm.prom 2>&1"
