@@ -1,6 +1,10 @@
 # SMART-farm
 Basic smartmontools scrape and exporter for Prometheus node-exporter.
 
+Grafana Dashboard:
+
+![dashboard screenshot](https://github.com/scrutinously/smart-farm/blob/main/smart-farm_dash.png?raw=true)
+
 ## Usage
 Simply run the script with elevated priveleges and direct the output to a file that can be scraped by node-exporter:
 
